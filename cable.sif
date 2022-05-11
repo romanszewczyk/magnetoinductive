@@ -1,0 +1,226 @@
+$Idri = 1.5/(pi*(5*1e-4)^2) ! driving current density
+$freq = 2.0e4 ! driving frequency
+$angfreq = 2*pi*freq   ! driving angular frequency
+$SamplPerCycle = 40.0	! samples per cycle
+$SamplingPeriod = 1/(freq*SamplPerCycle) ! sampling period
+
+Header
+	CHECK KEYWORDS Warn
+	Mesh DB "." "cable"
+	Include Path ""
+	Results Directory "."
+End
+
+Simulation
+       Mesh Levels = 1
+	Max Output Level = 5
+	Coordinate System = "Cartesian 3D"  
+	Coordinate Mapping(3) = 1 2 3  
+	Angular Frequency = $angfreq
+	Simulation Type = Transient
+	Steady State Max Iterations = 25
+
+	Output Intervals(1) = 1 				!Outputs after every 1 timestep intervals
+	Timestep intervals(1)= $3*SamplPerCycle 		!total time = 3*cycle, it means 2 cycles with 100Hz frequency
+	Timestep sizes(1) = $SamplingPeriod 			!timestep size 
+
+	Timestepping Method = BDF
+	BDF Order = 1
+	Solver Input File = cable.sif  
+!	Post File = "cable.ep"
+End
+
+Constants
+	Gravity(4) = 0 -1 0 9.82
+	Stefan Boltzmann = 5.67e-08
+	Permittivity of Vacuum = 8.8542e-12
+	Boltzmann Constant = 1.3807e-23
+	Unit Charge = 1.602e-19
+End
+
+! ------ MATERIALS --------
+
+Material 1
+	Name = "StripMat"
+
+	Electric Conductivity = Real 5.29598e5
+!	Relative Permeability = Real 5.79e2
+
+!	Relative Permeability = Variable "Magnetic Field Strength 1", "Magnetic Field Strength 2", "Magnetic Field Strength 3"
+!             Real MATC "x=tx(0);y=tx(1);z=tx(2);H=sqrt(x^2+y^2+z^2);if(H<0.7957747) {1e6} else {7.957747e5/H}"
+!	H<Bs/(mi0*mi)   mi  else Bs/mi0  /H
+!
+Reluctivity (3,3)= \
+ 2.10708e+03 -0.00000e+00 -0.00000e+00 \
+ 0.00000e+00 2.10708e+03 -0.00000e+00 \
+ 0.00000e+00 0.00000e+00 1.24456e+03
+End
+
+Material 2
+	Name = "AirMat"
+	Electric Conductivity = Real 0.0
+	Relative Permeability = Real 1.0
+End
+
+! ------- BODIES ----------
+
+Body 1
+	Target Bodies (1) = 1
+	Name = "Cable"
+	Equation = 1
+	Material = 1
+	Body Force = 1
+End
+
+Body 2
+	Target Bodies (1) = 2
+	Name = "Range"
+	Equation = 1
+	Material = 2
+End
+
+! --------- SOLVERS --------
+
+Solver 1
+  Equation = "MGDynamics"
+  Exec Solver = always
+  Variable = "AV"
+
+  Procedure = "MagnetoDynamics" "WhitneyAVSolver"
+
+!  Stabilize = True
+!  Bubbles = False
+!  Lumped Mass Matrix = False
+!  Optimize Bandwidth = True
+ Automated Source Projection BCs = True
+
+  Fix Input Current Density = True
+  Steady State Convergence Tolerance = 1.0e-5
+  Nonlinear System Convergence Tolerance =  1.0e-5
+  Nonlinear System Max Iterations = 25
+  Nonlinear System Newton After Iterations = 3
+  Nonlinear System Newton After Tolerance = 1.0e-5
+  Nonlinear System Relaxation Factor = 1
+  Linear System Solver = Iterative
+  Linear System Iterative Method = BiCGStabl
+  Linear System Max Iterations = 10000
+  Linear System Convergence Tolerance =   1.0e-7
+  BiCGstabl polynomial degree = 4
+  Linear System Preconditioning =  none
+  Linear System ILUT Tolerance =  1.0e-5
+  Linear System Abort Not Converged = true
+  Linear System Residual Output = 10
+  Linear System Precondition Recompute = 1
+
+Jfix: Linear System Solver = Iterative
+Jfix: Linear System Iterative Method =  bicgstabl ! bicgstab
+Jfix: Linear System Preconditioning = none  ! ilu1
+Jfix: Linear System Convergence Tolerance = 1.0e-13
+Jfix: Linear System Max Iterations = 5000
+Jfix: Linear System Residual Output = 100
+Jfix: Linear System Abort Not Converged = False
+Jfix: Linear System Precondition Recompute = 1
+Jfix: Optimize Bandwidth = True
+
+End
+
+
+
+Solver 2
+	Equation = "MGDynamicsCalc"
+	Exec Solver = always
+  	Procedure = "MagnetoDynamics" "MagnetoDynamicsCalcFields"
+  	Linear System Symmetric = True
+	
+  	Potential Variable = String "AV"
+	
+ 	Calculate Magnetic Vector Potential = Logical True
+ 	Calculate Current Density = Logical True
+  	Calculate Joule Heating = Logical True
+  	Calculate Electric Field = Logical True
+ 	Calculate Magnetic Flux Density = Logical True
+	Calculate Magnetic Field Strength = Logical True
+
+  	Steady State Convergence Tolerance = 1
+ 	Linear System Solver = "Iterative"
+ 	Linear System Preconditioning = ILU2 ! none !ILU2
+ 	Linear System Residual Output = 0
+  	Linear System Max Iterations = 25000
+ 	Linear System Iterative Method = Bicgstabl
+	Linear System Convergence Tolerance = 1.0e-7 ! 1.0e-7
+
+End
+
+Solver 3
+	Exec Solver = after timestep
+	Equation = SaveGrid
+	Procedure = "SaveGridData" "SaveGridData"
+	Filename Prefix = String cable
+	Output Format = String table
+	Check for Duplicates = Logical True
+
+	Grid nx = Integer 40
+	Grid ny = Integer 1
+	Grid nz = Integer 50
+	
+	Min Coordinate 1 = Real -0.000550
+	Min Coordinate 2 = Real -0.000010
+	Min Coordinate 3 = Real -0.005500
+
+	Max Coordinate 1 = Real  0.000550
+	Max Coordinate 2 = Real  0.000010
+	Max Coordinate 3 = Real  0.005500
+
+	Vector Field 1 = String Current Density 
+  	Vector Field 2 = String Electric Field
+ 	Vector Field 3 = String Magnetic Flux Density
+
+End
+
+Solver 4
+  	Exec Solver =  After simulation
+  	Equation = "result output"
+  	Procedure = "ResultOutputSolve" "ResultOutputSolver"
+  	Save Geometry Ids = Logical True ! add this line if you want to access boundaries in Paraview
+  	Output File Name = File "strip.vtu"
+  	Output Format = String vtu
+End
+
+
+
+
+! -------- EQUATIONS ----------
+Equation 1
+	Name = "Equation1"
+	Active Solvers (4) =  1 2 3 4
+End
+
+
+!---------BODY FORCE------
+
+Body Force 1
+
+	Name = "CurrentDriver"
+	Current Density 1 = Real 0.0
+	Current Density 2 = Real 0.0
+	Current Density 3 = Variable "Time"
+		Real MATC "t=tx(0); Idri*sin(angfreq*(t-SamplingPeriod/2))"    ! no zero during crossing to avoid solver unstability
+
+End
+
+! ------- BOUNDARY CONDITIONS -------
+
+Boundary Condition 1
+  name = "Far"
+  target boundaries(3) = 3 4 5
+  AV {e} 1 = Real 0.0
+  AV {e} 2 = Real 0.0
+  AV {e} 3 = Real 0.0
+  AV 1 = Real 0.0
+  AV 2 = Real 0.0
+  AV 3 = Real 0.0
+
+End
+
+
+
