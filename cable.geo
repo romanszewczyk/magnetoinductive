@@ -1,5 +1,7 @@
+# Scripts for the paper Modelling the magnetoinductive effect for coil-less magnetomechanical strain and force sensors
 #
-## Shaft for torque
+# MIT License specified in the LICENSE file
+#
 #
 algebraic3d
 
