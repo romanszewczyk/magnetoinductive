@@ -1,6 +1,6 @@
 ! Scripts for the paper Modelling the magnetoinductive effect for coil-less magnetomechanical strain and force sensors
 !
-! MIT License specified in the license.txt file
+! MIT License specified in the LICENSE file
 !
 
 $Idri = 1.5/(pi*(5*1e-4)^2) ! driving current density
